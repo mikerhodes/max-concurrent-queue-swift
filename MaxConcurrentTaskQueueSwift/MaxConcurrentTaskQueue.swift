@@ -18,24 +18,25 @@ import Cocoa
 
 class MaxConcurrentTasksQueue: NSObject {
     
-    private let serialq: dispatch_queue_t
-    private let concurrentq: dispatch_queue_t
-    private let sema: dispatch_semaphore_t
+    private let serialq: DispatchQueue
+    private let concurrentq: DispatchQueue
+    private let sema: DispatchSemaphore
     
     init(withMaxConcurrency maxConcurrency: Int) {
-        serialq = dispatch_queue_create("uk.co.dx13.serial", nil)
-        concurrentq = dispatch_queue_create("uk.co.dx13.concurrent", DISPATCH_QUEUE_CONCURRENT)
-        sema = dispatch_semaphore_create(maxConcurrency);
+        serialq = DispatchQueue.init(label: "uk.co.dx13.serial")
+        concurrentq = DispatchQueue.init(label: "uk.co.dx13.concurrent", attributes: .concurrent)
+        sema = DispatchSemaphore(value: maxConcurrency);
     }
     
-    func enqueue(task: () -> ()) {
-        dispatch_async(serialq) {
-            dispatch_semaphore_wait(self.sema, DISPATCH_TIME_FOREVER);
-            dispatch_async(self.concurrentq) {
+    func enqueue(task: @escaping () -> ()) {
+        serialq.async() {
+            _ = self.sema.wait(timeout: DispatchTime.distantFuture)
+            self.concurrentq.async() {
                 task();
-                dispatch_semaphore_signal(self.sema);
+                self.sema.signal();
             }
         }; 
     }
+
     
 }
